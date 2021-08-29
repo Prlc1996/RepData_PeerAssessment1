@@ -1,0 +1,196 @@
+---
+title: "Reproducible Research _ Project1"
+author: "López"
+date: "25/8/2021"
+output: html_document
+---
+
+Loading and preprocessing the data
+
+```{r}
+getwd()
+direccion="C:/Users/user/Downloads/repdata_data_activity.zip"
+unzip(direccion,exdir = "./data_activity")
+```
+
+Once we got the data already unziped, then we can proceed to read the data in a table o data frame format:
+
+```{r}
+activity_data=read.csv("./data_activity/activity.csv")
+head(activity_data,5)
+```
+
+# Question 1, 2 ,3
+
+Now we have the 3 variables dataset, thus we can calculate mean and median of steps per day:
+
+- Including N.A
+```{r}
+total_steps = with(activity_data, tapply(steps, date, sum, na.rm = TRUE))
+mean(total_steps)
+median(total_steps)
+```
+
+-Not including N.A
+
+```{r}
+total_steps_na = with(activity_data, tapply(steps, date, sum, na.rm = FALSE))
+mean(total_steps_na,na.rm = TRUE)
+median(total_steps_na,na.rm = TRUE)
+```
+
+Or we get the same results working with tables:
+
+-Including N.A
+```{r}
+activity_data_table=data.table::fread(input="./data_activity/activity.csv")
+head(activity_data_table,5)
+total_steps_tab = activity_data_table[, c(lapply(.SD, sum, na.rm = FALSE)), .SDcols = c("steps"), by = .(date)] 
+total_steps_tab[, .(Mean = mean(steps, na.rm = TRUE), Median = median(steps, na.rm = TRUE))]
+```
+
+-Not including N.A
+
+```{r}
+total_steps_tab_na = activity_data_table[, c(lapply(.SD, sum, na.rm = TRUE)), .SDcols = c("steps"), by = .(date)]
+
+total_steps_tab_na[, .(Mean = mean(steps, na.rm = TRUE), Median = median(steps, na.rm = TRUE))]
+```
+
+And now constructing a histogram with the total number of steps taken per day and its frecuencies:
+
+```{r warning=FALSE, message=FALSE}
+library(ggplot2)
+ggplot(total_steps_tab, aes(x=as.Date(date),y=steps)) +
+    geom_bar(stat = "identity") +
+    labs(title = "Daily Steps", x = "Date", y = "Steps Frecuency")+
+    theme_bw()
+
+```
+
+```{r warning=FALSE, message=FALSE}
+library(ggplot2)
+library(hrbrthemes)
+ggplot(total_steps_tab, aes(steps)) +
+    geom_histogram(color="#e9ecef", alpha=0.6, position = 'identity')+
+    labs(title = "Daily Steps", x = "Steps", y = "Steps Frecuency")+
+        theme_bw()
+
+```
+
+
+From now on we will work just with tables for question 5 and 6.
+
+# Question 4
+
+Time series plot of the average number of steps taken:
+```{r warning=FALSE, message=FALSE}
+mean_steps_tab = activity_data_table[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(date)] 
+head(mean_steps_tab,5)
+library(ggplot2)
+ggplot(mean_steps_tab, aes(x=as.Date(date),y=steps)) +
+    geom_line(stat = "identity",color="black") +
+    labs(title = "Avg. Daily Steps", x = "Date", y = "Avg. Steps Frecuency")+
+    theme_bw()
+
+```
+
+As can be seen there are some missing data about specific dates, but this can be solve if we work with intervals, we solve this out in the next question
+
+# Question 5
+
+The 5-minute interval that, on average, contains the maximum number of steps:
+
+```{r warning=FALSE, message=FALSE}
+interval_5_min = activity_data_table[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(interval)] 
+head(interval_5_min,5)
+ggplot(interval_5_min, aes(x = interval , y = steps)) + geom_line(color="black") + labs(title = "Avg. Daily Steps", x = "Interval", y = "Avg. Steps per day")
+
+```
+
+And for the 5 minutes interval that contains the maximun number of steps on average:
+```{r warning=FALSE, message=FALSE}
+interval_5_min[steps == max(steps), .(max_interval = interval)]
+
+```
+
+# Question 6
+
+Code to describe and show a strategy for imputing missing data:
+
+```{r warning=FALSE, message=FALSE}
+n_NA= nrow(activity_data_table[is.na(steps),])
+# Or alternatively
+n_NA_A=activity_data_table[is.na(steps),.N]
+# Now that we determined the number os NA in the datasets, we need to propose an imputting method, for instance we'll use the mean
+activity_data_table[is.na(steps), "steps"] = activity_data_table[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps")]
+
+```
+
+Once we got the imputed data we can proceed with the next questions.
+# Question 7
+
+Histogram of the total number of steps taken each day after missing values are imputed:
+
+Before aswering this questions, we don´t want to overwrite the dataset, so let´s create a new one
+```{r warning=FALSE, message=FALSE}
+data.table::fwrite(x = activity_data_table, file = "./data_activity/imputed_activity.csv", quote = FALSE)
+```
+
+```{r warning=FALSE, message=FALSE}
+mean_steps_tab = activity_data_table[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(date)] 
+head(mean_steps_tab,5)
+library(ggplot2)
+ggplot(mean_steps_tab, aes(x=as.Date(date),y=steps)) +
+    geom_line(stat = "identity",color="black") +
+    labs(title = "Avg. Daily Steps", x = "Date", y = "Avg. Steps Frecuency")+
+    theme_bw()
+
+```
+
+```{r warning=FALSE, message=FALSE}
+total_steps_tab_na = activity_data_table[, c(lapply(.SD, sum, na.rm = TRUE)), .SDcols = c("steps"), by = .(date)]
+total_steps_tab_na[, .(Mean = mean(steps, na.rm = TRUE), Median = median(steps, na.rm = TRUE))]
+ggplot(total_steps_tab, aes(steps)) +
+    geom_histogram(color="#e9ecef", alpha=0.6, position = 'identity')+
+    labs(title = "Daily Steps", x = "Steps", y = "Steps Frecuency")+
+        theme_bw()
+
+```
+
+```{r warning=FALSE, message=FALSE}
+library(ggplot2)
+ggplot(total_steps_tab_na, aes(x=as.Date(date),y=steps)) +
+    geom_bar(stat = "identity") +
+    labs(title = "Daily Steps", x = "Date", y = "Steps Frecuency")+
+    theme_bw()
+
+```
+
+
+# Question 8
+
+Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends:
+
+
+```{r warning=FALSE, message=FALSE}
+activity_data_table[, day := as.Date(date, format = "%Y-%m-%d")]
+activity_data_table[, day:= weekdays(x = day)]
+unique(activity_data_table$day)
+activity_data_table[grepl(pattern = "lunes|martes|miércoles|jueves|viernes", x = day), "day_date"] = "weekday"
+activity_data_table[grepl(pattern = "sábado|domingo", x = day), "day_date"] = "weekend"
+
+
+#Now it's time to calcule the mean
+interval_5_min_2 = activity_data_table[, c(lapply(.SD, mean, na.rm = TRUE)), .SDcols = c("steps"), by = .(interval, day_date)]
+head(interval_5_min_2)
+
+#Now it's time to make a plot 
+library(ggplot2)
+ggplot(interval_5_min_2, aes(x=interval,y=steps,colour=day_date)) +
+    geom_line() +
+    labs(title = "Avg. Daily Steps per 5_min Interval on Weekdays and Weekends", x= "Interval",y= "Avg. Steps Frecuency")+
+    facet_wrap(~day_date , ncol = 1, nrow=2)+
+    theme_bw()
+
+```
